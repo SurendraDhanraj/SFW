@@ -1,7 +1,6 @@
 import { convexAuth, getAuthUserId as getAuthUserIdFromLib } from "@convex-dev/auth/server";
 import { Password } from "@convex-dev/auth/providers/Password";
 import { MutationCtx, QueryCtx, ActionCtx } from "./_generated/server";
-import { EmailConfig } from "@convex-dev/auth/server";
 
 const DEFAULT_ROLES = [
   { name: "Director", permissions: ["all"] },
@@ -20,26 +19,12 @@ async function ensureRoles(ctx: MutationCtx) {
   }
 }
 
-const PasswordReset = {
-  id: "password-reset",
-  type: "email",
-  maxAge: 60 * 15, // 15 minutes
-  options: {},
-  async generateVerificationToken() {
-    return Array.from({ length: 8 }, () => Math.floor(Math.random() * 10)).join("");
-  },
-  async sendVerificationRequest({ identifier, token }: { identifier: string; token: string }) {
-    console.log(`\n==== PASSWORD RESET OTP ====`);
-    console.log(`Email: ${identifier}`);
-    console.log(`Code:  ${token}`);
-    console.log(`============================\n`);
-  },
-} as any; // Cast as any to seamlessly slip past EmailConfig type requirements
+const PasswordReset = null;
 
 export const { auth, signIn, signOut, store } = convexAuth({
   providers: [Password({ 
     profile: (params) => ({ email: params.email as string, name: params.name as string }),
-    reset: PasswordReset 
+    ...(PasswordReset ? { reset: PasswordReset } : {})
   })],
   callbacks: {
     async afterUserCreatedOrUpdated(ctx, args) {

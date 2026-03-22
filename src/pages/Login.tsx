@@ -129,18 +129,7 @@ export default function Login() {
 
         {(mode === 'signIn' || mode === 'signUp') && (
           <div className="field-group">
-            <label className="field-label" htmlFor="password">
-              Password
-              {mode === 'signIn' && (
-                <button 
-                  type="button" 
-                  onClick={() => { setMode('reset'); setError(''); }} 
-                  style={{ float: 'right', background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.75rem', padding: 0 }}
-                >
-                  Forgot Password?
-                </button>
-              )}
-            </label>
+            <label className="field-label" htmlFor="password">Password</label>
             <input
               id="password"
               type="password"
