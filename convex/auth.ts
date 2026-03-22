@@ -38,13 +38,13 @@ export const { auth, signIn, signOut, store } = convexAuth({
         const allAppUsers = await ctx.db.query("appUsers").collect();
         const isFirst = allAppUsers.length === 0;
 
-        const directorRole = await ctx.db
+        const directorRole = await (ctx.db as any)
           .query("roles")
-          .withIndex("by_name", (q) => q.eq("name", "Director"))
+          .withIndex("by_name", (q: any) => q.eq("name", "Director"))
           .first();
-        const clericalRole = await ctx.db
+        const clericalRole = await (ctx.db as any)
           .query("roles")
-          .withIndex("by_name", (q) => q.eq("name", "Clerical"))
+          .withIndex("by_name", (q: any) => q.eq("name", "Clerical"))
           .first();
 
         if (!directorRole) return;
@@ -55,9 +55,9 @@ export const { auth, signIn, signOut, store } = convexAuth({
         const email = (profile.email as string | undefined) ?? "";
 
         // Check if appUser already exists for this authUserId
-        const existing = await ctx.db
+        const existing = await (ctx.db as any)
           .query("appUsers")
-          .withIndex("by_authUserId", (q) => q.eq("authUserId", userId as string))
+          .withIndex("by_authUserId", (q: any) => q.eq("authUserId", userId as string))
           .first();
 
         if (!existing) {
