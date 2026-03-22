@@ -19,51 +19,61 @@ async function ensureRoles(ctx: MutationCtx) {
   }
 }
 
-const PasswordReset = null;
-
 export const { auth, signIn, signOut, store } = convexAuth({
   providers: [Password({ 
     profile: (params) => ({ email: params.email as string, name: params.name as string }),
-    ...(PasswordReset ? { reset: PasswordReset } : {})
   })],
   callbacks: {
     async afterUserCreatedOrUpdated(ctx, args) {
       const { userId, existingUserId, profile } = args;
 
       // Only run on new user creation (not updates / sign-ins)
-      if (existingUserId !== null) return;
+      if (existingUserId != null) return;
 
-      // Seed default roles if none exist
-      await ensureRoles(ctx);
+      try {
+        // Seed default roles if none exist
+        await ensureRoles(ctx);
 
-      // Check if this is the first app user → Director. Otherwise → Clerical
-      const allAppUsers = await ctx.db.query("appUsers").collect();
-      const isFirst = allAppUsers.length === 0;
+        // Check if this is the first app user → Director. Otherwise → Clerical
+        const allAppUsers = await ctx.db.query("appUsers").collect();
+        const isFirst = allAppUsers.length === 0;
 
-      const directorRole = await (ctx as any).db
-        .query("roles")
-        .withIndex("by_name", (q: any) => q.eq("name", "Director"))
-        .first();
-      const clericalRole = await (ctx as any).db
-        .query("roles")
-        .withIndex("by_name", (q: any) => q.eq("name", "Clerical"))
-        .first();
+        const directorRole = await ctx.db
+          .query("roles")
+          .withIndex("by_name", (q) => q.eq("name", "Director"))
+          .first();
+        const clericalRole = await ctx.db
+          .query("roles")
+          .withIndex("by_name", (q) => q.eq("name", "Clerical"))
+          .first();
 
-      if (!directorRole) return; // roles not seeded yet (shouldn't happen)
+        if (!directorRole) return;
 
-      const roleId = isFirst ? directorRole._id : (clericalRole?._id ?? directorRole._id);
+        const roleId = isFirst ? directorRole._id : (clericalRole?._id ?? directorRole._id);
 
-      const name = (profile.name as string | undefined) ?? (profile.email as string | undefined) ?? "Unknown";
-      const email = (profile.email as string | undefined) ?? "";
+        const name = (profile.name as string | undefined) ?? (profile.email as string | undefined) ?? "Unknown";
+        const email = (profile.email as string | undefined) ?? "";
 
-      await ctx.db.insert("appUsers", {
-        name,
-        email,
-        roleId,
-        authUserId: userId as string,
-        isActive: true, // New users are active by default
-        createdAt: Date.now(),
-      });
+        // Check if appUser already exists for this authUserId
+        const existing = await ctx.db
+          .query("appUsers")
+          .withIndex("by_authUserId", (q) => q.eq("authUserId", userId as string))
+          .first();
+
+        if (!existing) {
+          await ctx.db.insert("appUsers", {
+            name,
+            email,
+            roleId,
+            authUserId: userId as string,
+            isActive: true,
+            createdAt: Date.now(),
+          });
+        }
+      } catch (e) {
+        // Log but don't fail the auth transaction
+        console.error("afterUserCreatedOrUpdated error:", e);
+      }
     },
   },
 });
@@ -71,7 +81,6 @@ export const { auth, signIn, signOut, store } = convexAuth({
 export async function getAuthUserId(ctx: QueryCtx | MutationCtx | ActionCtx) {
   const userId = await getAuthUserIdFromLib(ctx);
   if (!userId) return null;
-  // Make sure to bounce globally if the user is deactivated
   if ("db" in ctx) {
     const appUser = await (ctx.db as any).query("appUsers").withIndex("by_authUserId", (q: any) => q.eq("authUserId", userId)).first();
     if (appUser && appUser.isActive === false) throw new Error("Account has been deactivated. Please contact an administrator.");
